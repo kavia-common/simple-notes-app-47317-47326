@@ -12,44 +12,55 @@ import {
   deleteNote,
 } from "./api";
 
+/**
+ * Root component for Notes Ocean frontend (Ocean Professional theme)
+ * Handles global state: theme, notes, selection, editing, search & filters.
+ */
 // PUBLIC_INTERFACE
 function App() {
-  // Theme state
+  /* ---------- State ---------- */
+  // Theme
   const [theme, setTheme] = useState("light");
-  // Notes state
+  // Notes array
   const [notes, setNotes] = useState([]);
-  // Selected note ID
+  // Currently selected note id
   const [selectedId, setSelectedId] = useState(null);
-  // True if editing (edit or new)
+  // Editing state { mode: "new" } | false
   const [editing, setEditing] = useState(false);
+  // Search term for full-text filter
+  const [searchTerm, setSearchTerm] = useState("");
+  // Filter value: "all" | "recent"
+  const [filter, setFilter] = useState("all");
 
-  // Effect: Apply theme to document root
+  /* ---------- Effects ---------- */
+  // Apply theme to <html>
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
-  // Effect: Load notes on mount
+  // On mount: load notes
   useEffect(() => {
     loadNotes();
   }, []);
 
+  /* ---------- Data helpers ---------- */
   const loadNotes = async () => {
-    const notes = await getNotes();
-    setNotes(notes);
-    if (notes.length > 0) {
-      setSelectedId(notes[0].id);
+    const notesData = await getNotes();
+    setNotes(notesData);
+    // If none selected, pick first note
+    if (notesData.length > 0) {
+      setSelectedId(notesData[0].id);
     }
   };
 
+  /* ---------- Theme ---------- */
   // PUBLIC_INTERFACE
-  const toggleTheme = () => {
+  const toggleTheme = () =>
     setTheme((prev) => (prev === "light" ? "dark" : "light"));
-  };
 
+  /* ---------- Notes CRUD ---------- */
   // PUBLIC_INTERFACE
-  const handleAddNote = async () => {
-    setEditing({ mode: "new" });
-  };
+  const handleAddNote = () => setEditing({ mode: "new" });
 
   // PUBLIC_INTERFACE
   const handleSelectNote = (id) => {
@@ -60,7 +71,7 @@ function App() {
   // PUBLIC_INTERFACE
   const handleDeleteNote = async (id) => {
     await deleteNote(id);
-    let updated = await getNotes();
+    const updated = await getNotes();
     setNotes(updated);
     if (updated.length > 0) {
       setSelectedId(updated[0].id);
@@ -73,10 +84,8 @@ function App() {
   // PUBLIC_INTERFACE
   const handleSaveNote = async (content, id = null) => {
     if (id) {
-      // Edit existing
       await updateNote(id, content);
     } else {
-      // Create new
       await createNote({ content, date: Date.now() });
     }
     const updated = await getNotes();
@@ -93,27 +102,48 @@ function App() {
   // PUBLIC_INTERFACE
   const handleCancelEdit = () => setEditing(false);
 
-  // Compute selectedNote
+  /* ---------- Derived values ---------- */
+  const filteredNotes = notes.filter((note) => {
+    // Text match
+    const textMatch = note.content
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    if (!textMatch) return false;
+
+    // Filter type
+    if (filter === "recent") {
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      const noteTime = note.date || Number(note.id);
+      return noteTime >= Date.now() - oneDayMs;
+    }
+    return true;
+  });
+
   const selectedNote = notes.find((n) => n.id === selectedId);
 
+  /* ---------- Render ---------- */
   return (
     <div className="App" data-testid="app-root">
-      <Header theme={theme} onToggleTheme={toggleTheme} />
+      <Header
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        filter={filter}
+        onFilterChange={setFilter}
+      />
       <Sidebar onAddNote={handleAddNote} />
       <main className="notes-main">
         <NoteList
-          notes={notes}
+          notes={filteredNotes}
           selectedId={selectedId}
           onSelect={handleSelectNote}
           onDelete={handleDeleteNote}
+          searchTerm={searchTerm}
         />
         {editing ? (
           <NoteEditor
-            note={
-              editing.mode === "new"
-                ? null
-                : selectedNote || null
-            }
+            note={editing.mode === "new" ? null : selectedNote || null}
             onSave={handleSaveNote}
             onCancel={handleCancelEdit}
           />

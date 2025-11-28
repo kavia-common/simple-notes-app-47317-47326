@@ -1,15 +1,37 @@
-/* See above for file content. */
 import React from "react";
 
+/**
+ * Renders list of notes with selection, deletion and highlighting of matches.
+ *
+ * @param {Array}  notes        – list of note objects { id, content, date }
+ * @param {string} selectedId   – currently selected note id
+ * @param {Function} onSelect   – callback when note selected
+ * @param {Function} onDelete   – callback when note deleted
+ * @param {string}  searchTerm  – current search term for highlighting
+ */
 // PUBLIC_INTERFACE
-function NoteList({ notes, selectedId, onSelect, onDelete }) {
-  /**
-   * Lists existing notes with select and delete options.
-   * @param {Array} notes - List of note objects { id, content, date }
-   * @param {string} selectedId - Current selected note id
-   * @param {function} onSelect - Note select callback
-   * @param {function} onDelete - Delete note callback
-   */
+function NoteList({
+  notes,
+  selectedId,
+  onSelect,
+  onDelete,
+  searchTerm = "",
+}) {
+  // Highlight matching text with <span className="note-highlight">
+  const highlightText = (text) => {
+    if (!searchTerm) return text;
+    const regex = new RegExp(`(${searchTerm})`, "gi");
+    return text.split(regex).map((chunk, i) =>
+      regex.test(chunk) ? (
+        <span key={i} className="note-highlight">
+          {chunk}
+        </span>
+      ) : (
+        chunk
+      )
+    );
+  };
+
   return (
     <section className="note-list">
       <div className="note-list-title">Notes</div>
@@ -17,7 +39,7 @@ function NoteList({ notes, selectedId, onSelect, onDelete }) {
         <div style={{ color: "#757575" }}>No notes yet.</div>
       ) : (
         <ul className="note-list-items">
-          {notes.map(note => (
+          {notes.map((note) => (
             <li
               key={note.id}
               className={`note-list-item${
@@ -28,16 +50,16 @@ function NoteList({ notes, selectedId, onSelect, onDelete }) {
             >
               <div>
                 <div className="note-title">
-                  {note.content.slice(0, 30) || "Untitled"}
+                  {highlightText(note.content.slice(0, 30) || "Untitled")}
                 </div>
                 <div className="note-date">
-                  {new Date(note.date || note.id * 1).toLocaleString()}
+                  {new Date(note.date || Number(note.id)).toLocaleString()}
                 </div>
               </div>
               <div className="note-actions">
                 <button
                   className="note-delete-btn"
-                  onClick={e => {
+                  onClick={(e) => {
                     e.stopPropagation();
                     onDelete(note.id);
                   }}
